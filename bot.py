@@ -1,10 +1,19 @@
 import os
 import sqlite3
+from flask import Flask
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
+# Flask app (needed for Render to keep service alive)
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Bot is running!"
+
 TOKEN = os.getenv("BOT_TOKEN")
 
+# Database setup
 conn = sqlite3.connect("data.db", check_same_thread=False)
 cursor = conn.cursor()
 
@@ -16,6 +25,7 @@ CREATE TABLE IF NOT EXISTS workers (
 """)
 conn.commit()
 
+# Add valid posts
 async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = context.args[0]
     posts = int(context.args[1])
@@ -27,6 +37,7 @@ async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"{name} added ₹{amount}. Total updated.")
 
+# Record payment
 async def paid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = context.args[0]
     amount = int(context.args[1])
@@ -36,6 +47,7 @@ async def paid(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"{name} paid ₹{amount}. Balance updated.")
 
+# Check due
 async def due(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = context.args[0]
 
@@ -47,10 +59,12 @@ async def due(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Worker not found.")
 
-app = ApplicationBuilder().token(TOKEN).build()
+# Telegram bot setup
+telegram_app = ApplicationBuilder().token(TOKEN).build()
 
-app.add_handler(CommandHandler("add", add))
-app.add_handler(CommandHandler("paid", paid))
-app.add_handler(CommandHandler("due", due))
+telegram_app.add_handler(CommandHandler("add", add))
+telegram_app.add_handler(CommandHandler("paid", paid))
+telegram_app.add_handler(CommandHandler("due", due))
 
-app.run_polling()
+if __name__ == "__main__":
+    telegram_app.run_polling()
